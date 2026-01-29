@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../pages/scanner_page.dart';
 import '../main.dart'; // For minersList
+import '/widgets/app_background.dart';
+import '/ui/glass_card.dart';
 
 // ---------- InfoBar Widget ----------
 class InfoBar extends StatelessWidget {
@@ -81,12 +83,16 @@ class _DashboardPageState extends State<DashboardPage> {
     double avgTemp = minersList.isEmpty ? 0 : 65;        // Celsius
     int alerts = minersList.isEmpty ? 0 : 2;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          // ---------- Add Miner Button ----------
-          ElevatedButton.icon(
+
+   return AppBackground(
+  child: SingleChildScrollView(
+    padding: const EdgeInsets.all(16.0),
+    child: Column(
+      children: [
+
+        // ---------- Add Miner Button ----------
+        GlassCard(
+          child: ElevatedButton.icon(
             onPressed: () async {
               final newMiner = await Navigator.push(
                 context,
@@ -104,39 +110,47 @@ class _DashboardPageState extends State<DashboardPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              elevation: 0,
             ),
           ),
-          const SizedBox(height: 24),
+        ),
 
-          // ---------- Info Bars ----------
-          InfoBar(
-            label: 'Total Miners',
-            value: minersList.length.toDouble(),
-            maxValue: 20,
-            color: Colors.orange,
+        const SizedBox(height: 24),
+
+        // ---------- Dashboard Stats ----------
+        GlassCard(
+          child: Column(
+            children: [
+              InfoBar(
+                label: 'Total Miners',
+                value: minersList.length.toDouble(),
+                maxValue: 20,
+                color: Colors.orange,
+              ),
+              InfoBar(
+                label: 'Total Hashrate',
+                value: totalHashrate,
+                maxValue: 10000,
+                color: Colors.green,
+              ),
+              InfoBar(
+                label: 'Average Temp',
+                value: avgTemp,
+                maxValue: 100,
+                color: Colors.red,
+              ),
+              InfoBar(
+                label: 'Alerts',
+                value: alerts.toDouble(),
+                maxValue: 10,
+                color: Colors.yellow,
+              ),
+            ],
           ),
-          InfoBar(
-            label: 'Total Hashrate',
-            value: totalHashrate,
-            maxValue: 10000,
-            color: Colors.green,
-          ),
-          InfoBar(
-            label: 'Average Temp',
-            value: avgTemp,
-            maxValue: 100,
-            color: Colors.red,
-          ),
-          InfoBar(
-            label: 'Alerts',
-            value: alerts.toDouble(),
-            maxValue: 10,
-            color: Colors.yellow,
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  ),
+);
+}
 }
