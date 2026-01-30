@@ -5,7 +5,7 @@ import 'package:network_info_plus/network_info_plus.dart';
 import '../models/bitaxe_device.dart';
 
 class BitaxeScanner {
-  static const Duration timeout = Duration(seconds: 2);
+  static const Duration timeout = Duration(seconds: 5);
   static const int batchSize = 15; // number of concurrent requests
 
   /// Scan the local subnet
@@ -48,7 +48,7 @@ class BitaxeScanner {
         port = int.tryParse(parts[1]) ?? 80;
       }
 
-      final uri = Uri(scheme: 'http', host: host, port: port, path: '/api/system');
+      final uri = Uri(scheme: 'http', host: host, port: port, path: '/api/system/info');
       debugPrint('➡️ Probing $uri');
 
       final response = await http.get(uri).timeout(timeout);
@@ -80,7 +80,7 @@ class BitaxeScanner {
 
   /// Determine if response matches Bitaxe structure
   bool _looksLikeBitaxe(Map<String, dynamic> json) {
-    return json.containsKey('model') && json.containsKey('hostname');
+    return json.containsKey('model') && json.containsKey('hostname') || json.containsKey('ASICModel');
   }
 
   /// Determine local subnet from Wi-Fi IP
