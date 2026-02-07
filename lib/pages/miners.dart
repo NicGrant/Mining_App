@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../main.dart';
+import '../models/bitaxe_device.dart';
+import '/main.dart';
 
 class MinersPage extends StatelessWidget {
   const MinersPage({super.key});
@@ -7,9 +8,8 @@ class MinersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Miners')),
       body: minersList.isEmpty
-          ? const Center(child: Text('No miners added'))
+          ? const Center(child: Text('No miners added yet'))
           : ListView.builder(
               itemCount: minersList.length,
               itemBuilder: (context, index) {

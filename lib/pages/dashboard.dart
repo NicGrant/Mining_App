@@ -1,156 +1,171 @@
 import 'package:flutter/material.dart';
-import '../pages/scanner_page.dart';
-import '../main.dart'; // For minersList
-import '/widgets/app_background.dart';
-import '/ui/glass_card.dart';
+import '../models/bitaxe_device.dart';
+import '../services/bitaxe_updater.dart';
+import '../ui/glass_card.dart';
+import '../widgets/app_background.dart';
 
-// ---------- InfoBar Widget ----------
-class InfoBar extends StatelessWidget {
-  final String label;
-  final double value;       // current value
-  final double maxValue;    // maximum value for the bar
-  final Color color;        // filled bar color
-
-  const InfoBar({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.maxValue,
-    this.color = Colors.orange,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    double percentage = (value / maxValue).clamp(0, 1);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label + value
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w500,
-                )),
-            Text(value.toStringAsFixed(1),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                )),
-          ],
-        ),
-        const SizedBox(height: 4),
-        // Bar
-        Container(
-          height: 14,
-          decoration: BoxDecoration(
-            color: Colors.grey[800],   // background of bar
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: percentage,
-            child: Container(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(7),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-}
-
-// ---------- Dashboard Page ----------
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final List<BitaxeDevice> miners;
+  const DashboardPage({super.key, required this.miners});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  String selectedGraphRange = '1H';
+
   @override
   Widget build(BuildContext context) {
-    // Example values — replace with real miner stats later
-    double totalHashrate = minersList.isEmpty ? 0 : 3500; // H/s
-    double avgTemp = minersList.isEmpty ? 0 : 65;        // Celsius
-    int alerts = minersList.isEmpty ? 0 : 2;
+    // Placeholder stats
+    double totalHashrate = widget.miners.fold(0, (sum, miner) => sum + (miner.hashRate ?? 0));
+    double avgTemp = widget.miners.isEmpty
+        ? 0
+        : widget.miners.fold(0.0, (sum, miner) => sum + (miner.temp ?? 0)) / widget.miners.length;
+    double errorPercentage = widget.miners.isEmpty
+        ? 0
+        : widget.miners.fold(0.0, (sum, miner) => sum + (miner.errorPercentage ?? 0)) /
+            widget.miners.length;
 
-
-   return AppBackground(
-  child: SingleChildScrollView(
-    padding: const EdgeInsets.all(16.0),
-    child: Column(
-      children: [
-
-        // ---------- Add Miner Button ----------
-        GlassCard(
-          child: ElevatedButton.icon(
-            onPressed: () async {
-              final newMiner = await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ScannerPage()),
-              );
-
-              if (newMiner != null) {
-                setState(() {
-                  minersList.add(newMiner);
-                });
-              }
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Add Miner'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              elevation: 0,
+    return AppBackground(
+      child: Column(
+        children: [
+          // Top AppBar with HashWatcher and Bell
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                SizedBox(width: 48), // Placeholder for alignment
+                Text('HashWatcher', style: TextStyle(color: Colors.white, fontSize: 24)),
+                Icon(Icons.notifications, color: Colors.white),
+              ],
             ),
           ),
-        ),
 
-        const SizedBox(height: 24),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                children: [
+                  // ---------- Graph Card ----------
+                  GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Hashrate (MH/s)', style: TextStyle(color: Colors.white, fontSize: 16)),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 150,
+                          color: Colors.white.withOpacity(0.05), // placeholder graph
+                          child: const Center(child: Text('Graph Placeholder', style: TextStyle(color: Colors.white54))),
+                        ),
+                        const SizedBox(height: 8),
+                        // Graph toggles
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: ['1H', '6H', '24H', '7D', '30D']
+                              .map((range) => ChoiceChip(
+                                    label: Text(range),
+                                    selected: selectedGraphRange == range,
+                                    onSelected: (_) {
+                                      setState(() {
+                                        selectedGraphRange = range;
+                                      });
+                                    },
+                                  ))
+                              .toList(),
+                        )
+                      ],
+                    ),
+                  ),
 
-        // ---------- Dashboard Stats ----------
-        GlassCard(
-          child: Column(
-            children: [
-              InfoBar(
-                label: 'Total Miners',
-                value: minersList.length.toDouble(),
-                maxValue: 20,
-                color: Colors.orange,
+                  const SizedBox(height: 16),
+
+                  // ---------- Stats Cards ----------
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      GlassCard(
+                        child: Column(
+                          children: [
+                            const Text('Total Miners', style: TextStyle(color: Colors.white54)),
+                            const SizedBox(height: 8),
+                            Text(widget.miners.length.toString(),
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      GlassCard(
+                        child: Column(
+                          children: [
+                            const Text('Total Hashrate', style: TextStyle(color: Colors.white54)),
+                            const SizedBox(height: 8),
+                            Text(totalHashrate.toStringAsFixed(2),
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      GlassCard(
+                        child: Column(
+                          children: [
+                            const Text('Avg Temp', style: TextStyle(color: Colors.white54)),
+                            const SizedBox(height: 8),
+                            Text(avgTemp.toStringAsFixed(1),
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      GlassCard(
+                        child: Column(
+                          children: [
+                            const Text('Error %', style: TextStyle(color: Colors.white54)),
+                            const SizedBox(height: 8),
+                            Text(errorPercentage.toStringAsFixed(2),
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ---------- Thermal Efficiency Card ----------
+                  GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Thermal Efficiency', style: TextStyle(color: Colors.white54)),
+                        SizedBox(height: 8),
+                        Center(child: Text('Placeholder: W/MH', style: TextStyle(color: Colors.white))),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ---------- Recent Issues Card ----------
+                  GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text('Recent Issues', style: TextStyle(color: Colors.white54)),
+                        SizedBox(height: 8),
+                        Center(child: Text('No issues detected', style: TextStyle(color: Colors.white))),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              InfoBar(
-                label: 'Total Hashrate',
-                value: totalHashrate,
-                maxValue: 10000,
-                color: Colors.green,
-              ),
-              InfoBar(
-                label: 'Average Temp',
-                value: avgTemp,
-                maxValue: 100,
-                color: Colors.red,
-              ),
-              InfoBar(
-                label: 'Alerts',
-                value: alerts.toDouble(),
-                maxValue: 10,
-                color: Colors.yellow,
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
-    ),
-  ),
-);
-}
+        ],
+      ),
+    );
+  }
 }
