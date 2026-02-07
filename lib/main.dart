@@ -5,6 +5,7 @@ import 'pages/trends.dart';
 import 'pages/logs.dart';
 import 'models/bitaxe_device.dart';
 import 'widgets/app_background.dart';
+import 'services/bitaxe_updater.dart'; // 🔥 ADD THIS
 
 void main() {
   runApp(const BitaxeApp());
@@ -62,7 +63,9 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = [
+  late BitaxeUpdater _updater; // 🔥 ADD THIS
+
+  late final List<Widget> _pages = [
     DashboardPage(miners: minersList),
     const MinersPage(),
     const TrendsPage(),
@@ -75,6 +78,28 @@ class _MainAppState extends State<MainApp> {
     'Trends',
     'Logs',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🔥 CREATE UPDATER HERE
+    _updater = BitaxeUpdater(
+      devices: minersList,
+      onUpdate: () {
+        // 🔥 THIS IS THE MAGIC LINE
+        setState(() {});
+      },
+    );
+
+    _updater.start();
+  }
+
+  @override
+  void dispose() {
+    _updater.stop(); // 🔥 CLEAN SHUTDOWN
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

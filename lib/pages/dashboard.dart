@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+
 import '../models/bitaxe_device.dart';
-import '../services/bitaxe_updater.dart';
+import '../models/graph_point.dart';
 import '../ui/glass_card.dart';
 import '../widgets/app_background.dart';
+import '../widgets/hashrate_chart.dart';
 
 class DashboardPage extends StatefulWidget {
   final List<BitaxeDevice> miners;
+
   const DashboardPage({super.key, required this.miners});
 
   @override
@@ -15,29 +19,77 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   String selectedGraphRange = '1H';
 
+  final List<GraphPoint> hashrateHistory = [];
+  static const int maxPoints = 120;
+
+  Timer? _sampleTimer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🔁 Sample every 3 seconds
+    _sampleTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _recordHashrateSample(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _sampleTimer?.cancel();
+    super.dispose();
+  }
+
+  void _recordHashrateSample() {
+    if (widget.miners.isEmpty) return;
+
+    final totalHashrate = widget.miners.fold<double>(
+      0,
+      (sum, miner) => sum + miner.hashRate,
+    );
+
+    setState(() {
+      hashrateHistory.add(
+        GraphPoint(DateTime.now(), totalHashrate),
+      );
+
+      if (hashrateHistory.length > maxPoints) {
+        hashrateHistory.removeAt(0);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Placeholder stats
-    double totalHashrate = widget.miners.fold(0, (sum, miner) => sum + (miner.hashRate ?? 0));
-    double avgTemp = widget.miners.isEmpty
+    final double totalHashrate =
+        widget.miners.fold(0, (sum, miner) => sum + miner.hashRate);
+
+    final double avgTemp = widget.miners.isEmpty
         ? 0
-        : widget.miners.fold(0.0, (sum, miner) => sum + (miner.temp ?? 0)) / widget.miners.length;
-    double errorPercentage = widget.miners.isEmpty
+        : widget.miners.fold(0.0, (sum, miner) => sum + miner.temp) /
+            widget.miners.length;
+
+    final double errorPercentage = widget.miners.isEmpty
         ? 0
-        : widget.miners.fold(0.0, (sum, miner) => sum + (miner.errorPercentage ?? 0)) /
+        : widget.miners.fold(0.0,
+                (sum, miner) => sum + miner.errorPercentage) /
             widget.miners.length;
 
     return AppBackground(
       child: Column(
         children: [
-          // Top AppBar with HashWatcher and Bell
+          // ---------- Header ----------
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
-                SizedBox(width: 48), // Placeholder for alignment
-                Text('HashWatcher', style: TextStyle(color: Colors.white, fontSize: 24)),
+                SizedBox(width: 48),
+                Text(
+                  'HashWatcher',
+                  style: TextStyle(color: Colors.white, fontSize: 24),
+                ),
                 Icon(Icons.notifications, color: Colors.white),
               ],
             ),
@@ -45,35 +97,43 @@ class _DashboardPageState extends State<DashboardPage> {
 
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // ---------- Graph Card ----------
+                  // ---------- GRAPH ----------
                   GlassCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Hashrate (MH/s)', style: TextStyle(color: Colors.white, fontSize: 16)),
-                        const SizedBox(height: 8),
-                        Container(
-                          height: 150,
-                          color: Colors.white.withOpacity(0.05), // placeholder graph
-                          child: const Center(child: Text('Graph Placeholder', style: TextStyle(color: Colors.white54))),
+                        const Text(
+                          'Hashrate (MH/s)',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
-                        const SizedBox(height: 8),
-                        // Graph toggles
+                        const SizedBox(height: 12),
+
+                        SizedBox(
+                          height: 150,
+                          child: HashrateChart(
+                            data: hashrateHistory,
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: ['1H', '6H', '24H', '7D', '30D']
-                              .map((range) => ChoiceChip(
-                                    label: Text(range),
-                                    selected: selectedGraphRange == range,
-                                    onSelected: (_) {
-                                      setState(() {
-                                        selectedGraphRange = range;
-                                      });
-                                    },
-                                  ))
+                              .map(
+                                (range) => ChoiceChip(
+                                  label: Text(range),
+                                  selected: selectedGraphRange == range,
+                                  onSelected: (_) {
+                                    setState(() {
+                                      selectedGraphRange = range;
+                                    });
+                                  },
+                                ),
+                              )
                               .toList(),
                         )
                       ],
@@ -82,86 +142,45 @@ class _DashboardPageState extends State<DashboardPage> {
 
                   const SizedBox(height: 16),
 
-                  // ---------- Stats Cards ----------
+                  // ---------- STATS ----------
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      GlassCard(
-                        child: Column(
-                          children: [
-                            const Text('Total Miners', style: TextStyle(color: Colors.white54)),
-                            const SizedBox(height: 8),
-                            Text(widget.miners.length.toString(),
-                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                      GlassCard(
-                        child: Column(
-                          children: [
-                            const Text('Total Hashrate', style: TextStyle(color: Colors.white54)),
-                            const SizedBox(height: 8),
-                            Text(totalHashrate.toStringAsFixed(2),
-                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                      GlassCard(
-                        child: Column(
-                          children: [
-                            const Text('Avg Temp', style: TextStyle(color: Colors.white54)),
-                            const SizedBox(height: 8),
-                            Text(avgTemp.toStringAsFixed(1),
-                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                      GlassCard(
-                        child: Column(
-                          children: [
-                            const Text('Error %', style: TextStyle(color: Colors.white54)),
-                            const SizedBox(height: 8),
-                            Text(errorPercentage.toStringAsFixed(2),
-                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
+                      _statCard('Total Miners',
+                          widget.miners.length.toString()),
+                      _statCard('Total Hashrate',
+                          totalHashrate.toStringAsFixed(2)),
+                      _statCard('Avg Temp',
+                          avgTemp.toStringAsFixed(1)),
+                      _statCard('Error %',
+                          errorPercentage.toStringAsFixed(2)),
                     ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ---------- Thermal Efficiency Card ----------
-                  GlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Thermal Efficiency', style: TextStyle(color: Colors.white54)),
-                        SizedBox(height: 8),
-                        Center(child: Text('Placeholder: W/MH', style: TextStyle(color: Colors.white))),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ---------- Recent Issues Card ----------
-                  GlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Recent Issues', style: TextStyle(color: Colors.white54)),
-                        SizedBox(height: 8),
-                        Center(child: Text('No issues detected', style: TextStyle(color: Colors.white))),
-                      ],
-                    ),
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statCard(String label, String value) {
+    return GlassCard(
+      child: Column(
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54)),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
