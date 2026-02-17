@@ -3,9 +3,10 @@ import 'pages/dashboard.dart';
 import 'pages/miners.dart';
 import 'pages/trends.dart';
 import 'pages/logs.dart';
+import 'pages/scanner_page.dart';
 import 'models/bitaxe_device.dart';
 import 'widgets/app_background.dart';
-import 'services/bitaxe_updater.dart'; // 🔥 ADD THIS
+import 'services/bitaxe_updater.dart';
 
 void main() {
   runApp(const BitaxeApp());
@@ -62,33 +63,16 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> {
   int _selectedIndex = 0;
-
-  late BitaxeUpdater _updater; // 🔥 ADD THIS
-
-  late final List<Widget> _pages = [
-    DashboardPage(miners: minersList),
-    const MinersPage(),
-    const TrendsPage(),
-    const LogsPage(),
-  ];
-
-  final List<String> _titles = [
-    'Dashboard',
-    'Miners',
-    'Trends',
-    'Logs',
-  ];
+  late BitaxeUpdater _updater;
 
   @override
   void initState() {
     super.initState();
 
-    // 🔥 CREATE UPDATER HERE
     _updater = BitaxeUpdater(
       devices: minersList,
       onUpdate: () {
-        // 🔥 THIS IS THE MAGIC LINE
-        setState(() {});
+        setState(() {}); // refresh UI when stats update
       },
     );
 
@@ -97,12 +81,49 @@ class _MainAppState extends State<MainApp> {
 
   @override
   void dispose() {
-    _updater.stop(); // 🔥 CLEAN SHUTDOWN
+    _updater.stop();
     super.dispose();
+  }
+
+  Future<void> _openScanner() async {
+    final BitaxeDevice? device = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ScannerPage(),
+      ),
+    );
+
+    if (device == null) return;
+
+    final exists = minersList.any((m) => m.ip == device.ip);
+    if (exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Miner already added')),
+      );
+      return;
+    }
+
+    setState(() {
+      minersList.add(device);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      DashboardPage(miners: minersList),
+      MinersPage(miners: minersList),
+      const TrendsPage(),
+      const LogsPage(),
+    ];
+
+    final titles = [
+      'Dashboard',
+      'Miners',
+      'Trends',
+      'Logs',
+    ];
+
     return AppBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -110,12 +131,19 @@ class _MainAppState extends State<MainApp> {
         extendBodyBehindAppBar: true,
 
         appBar: AppBar(
-          title: Text(_titles[_selectedIndex]),
+          title: Text(titles[_selectedIndex]),
           backgroundColor: Colors.transparent,
           elevation: 0,
         ),
 
-        body: _pages[_selectedIndex],
+        body: pages[_selectedIndex],
+
+        floatingActionButton: _selectedIndex == 1
+            ? FloatingActionButton(
+                onPressed: _openScanner,
+                child: const Icon(Icons.add),
+              )
+            : null,
 
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
