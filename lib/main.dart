@@ -120,7 +120,7 @@ class _MainAppState extends State<MainApp> {
     final titles = [
       'Dashboard',
       'Miners',
-      'Trends',
+      'Vendors',
       'Logs',
     ];
 
@@ -158,7 +158,7 @@ class _MainAppState extends State<MainApp> {
             BottomNavigationBarItem(
                 icon: Icon(Icons.memory), label: 'Miners'),
             BottomNavigationBarItem(
-                icon: Icon(Icons.show_chart), label: 'Trends'),
+                icon: Icon(Icons.show_chart), label: 'Vendors'),
             BottomNavigationBarItem(
                 icon: Icon(Icons.list_alt), label: 'Logs'),
           ],
